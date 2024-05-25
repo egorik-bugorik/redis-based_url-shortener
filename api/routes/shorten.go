@@ -39,9 +39,7 @@ func ShortenURL(ctx fiber.Ctx) error {
 	if err == redis.Nil {
 		_ = r2.Set(databaseCtx, ctx.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
 
-	}
-
-	if err != nil {
+	} else if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error in reddis"})
 
 	}

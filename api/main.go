@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/joho/godotenv"
@@ -26,10 +27,16 @@ func main() {
 	app.Use(logger.New())
 
 	setupRoutes(app)
-	c := database.NewClient(0)
-	_ = c
+	log.Println("Helo")
+	cli := database.NewClient(0)
+	res, err := cli.Ping(context.Background()).Result()
 	if err != nil {
 		panic(err)
 	}
+	log.Println(res)
+	cli.Close()
+	log.Println("Goodbye")
+
 	log.Fatal(app.Listen(os.Getenv("APP_PORT")))
+
 }
