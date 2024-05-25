@@ -33,21 +33,21 @@ func ShortenURL(ctx fiber.Ctx) error {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "couldn't parse json"})
 	}
 
-	r2 := database.NewClient(1)
-	defer r2.Close()
-	result, err := r2.Get(databaseCtx, ctx.IP()).Result()
+	r1 := database.NewClient(1)
+	defer r1.Close()
+	result, err := r1.Get(databaseCtx, ctx.IP()).Result()
 	if err == redis.Nil {
-		_ = r2.Set(databaseCtx, ctx.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
+		_ = r1.Set(databaseCtx, ctx.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
 
 	}
 
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error in reddis"})
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error in reddis" + err.Error()})
 
 	}
 	i, _ := strconv.Atoi(result)
 	if i <= 0 {
-		limit := r2.TTL(databaseCtx, ctx.IP())
+		limit := r1.TTL(databaseCtx, ctx.IP())
 		return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "rate time exceded", "rate_limit__rest": limit})
 
 	}
@@ -71,10 +71,10 @@ func ShortenURL(ctx fiber.Ctx) error {
 		id = body.CustomShort
 	}
 
-	r1 := database.NewClient(0)
-	defer r1.Close()
+	r := database.NewClient(0)
+	defer r.Close()
 
-	val, _ := r1.Get(databaseCtx, id).Result()
+	val, _ := r.Get(databaseCtx, id).Result()
 	if val != "" {
 		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "already in use"})
 
@@ -83,13 +83,13 @@ func ShortenURL(ctx fiber.Ctx) error {
 	if body.Expiry == 0 {
 		body.Expiry = 24
 	}
-	err = r1.Set(databaseCtx, id, body.Url, body.Expiry).Err()
+	err = r.Set(databaseCtx, id, body.Url, time.Minute).Err()
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "unaelr to connect to server "})
 
 	}
 
-	r2.Decr(databaseCtx, ctx.IP())
+	r1.Decr(databaseCtx, ctx.IP())
 
 	resp := Response{
 		Url:             body.Url,
@@ -99,10 +99,10 @@ func ShortenURL(ctx fiber.Ctx) error {
 		XRateLimitReset: 30,
 	}
 
-	ttl, _ := r1.TTL(databaseCtx, ctx.IP()).Result()
+	ttl, _ := r.TTL(databaseCtx, ctx.IP()).Result()
 	resp.XRateLimitReset = ttl
 
-	val, _ = r1.Get(databaseCtx, ctx.IP()).Result()
+	val, _ = r.Get(databaseCtx, ctx.IP()).Result()
 	resp.XRateRemain, _ = strconv.Atoi(val)
 
 	resp.CustomShort = os.Getenv("DOMAIN") + "/" + id

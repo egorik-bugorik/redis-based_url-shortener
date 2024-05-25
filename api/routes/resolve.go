@@ -19,7 +19,7 @@ func ResolveURL(ctx fiber.Ctx) error {
 
 	c := database.NewClient(0)
 	defer c.Close()
-	result, err := c.Get(database.Ctx, "url").Result()
+	result, err := c.Get(database.Ctx, url).Result()
 	if err == redis.Nil {
 		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "coudln't get url short"})
 
